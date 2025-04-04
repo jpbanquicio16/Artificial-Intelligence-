@@ -4,6 +4,7 @@ DEGREE = 'UG'
 from collections import deque
 import heapq
 import sys
+from itertools import count
 
 
 def parse_map_from_string(map_str):
@@ -141,6 +142,8 @@ def cost_function(curr, neighbour, grid):
     return 1 + max(0, (n_state - curr_state))
 
 def UCS(start, end, grid):
+    counter_gen = count()  
+
     rows = len(grid)
     cols = len(grid[0])
 
@@ -148,10 +151,10 @@ def UCS(start, end, grid):
     parent = dict()
 
     heap = []
-    cost_check = {}
-    cost_check[start] = 0 
+    cost_check = {start: 0}
 
-    heapq.heappush(heap, (0, start))
+    tie = next(counter_gen)
+    heapq.heappush(heap, (0, tie, start))  
 
     visit_count = [[0 for _ in range(cols)] for _ in range(rows)]
     first_visit = [[None for _ in range(cols)] for _ in range(rows)]
@@ -161,31 +164,36 @@ def UCS(start, end, grid):
     first_visit[start[0]][start[1]] = counter
     visit_count[start[0]][start[1]] += 1
 
-    while heap: 
-        curr_cost, curr = heapq.heappop(heap)
-        i, j = curr 
+    while heap:
+        curr_cost, _, curr = heapq.heappop(heap)
+        i, j = curr
 
-        if curr == end: 
+        if curr == end:
             return reconstruct_path(parent, start, end), visit_count, first_visit, last_visit
-        
-        if curr in visited: 
+
+        if curr in visited:
             continue
         visited.add(curr)
+        last_visit[i][j] = counter
+        counter += 1
 
-        for n1, n2 in get_adj(i,j,grid):
+        for n1, n2 in get_adj(i, j, grid):  # UDLR enforced by get_adj
             neighbor = (n1, n2)
             new_cost = curr_cost + cost_function(curr, neighbor, grid)
 
-            if neighbor not in cost_check or new_cost < cost_check[neighbor]: 
+            if neighbor not in cost_check or new_cost < cost_check[neighbor]:
                 cost_check[neighbor] = new_cost
                 parent[neighbor] = curr
-                heapq.heappush(heap, (new_cost, neighbor))
 
-            if first_visit[n1][n2] is None:
-                first_visit[n1][n2] = counter
-                visit_count[n1][n2] += 1
+                tie = next(counter_gen)
+                heapq.heappush(heap, (new_cost, tie, neighbor))
+
+                if first_visit[n1][n2] is None:
+                    first_visit[n1][n2] = counter
+                    visit_count[n1][n2] += 1
 
     return None, visit_count, first_visit, last_visit
+
 
 def manhattan_dist(a,b): 
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
@@ -194,13 +202,16 @@ def euclidean_dist(a,b):
     return((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
 
 def a_star(start, end, grid, heuristic_function):
+    from itertools import count
+    counter_gen = count()  
+
     rows = len(grid)
     cols = len(grid[0])
 
     visited = set()
-    parent = dict()
+    parent = {}
 
-    heap = [] 
+    heap = []
     cost_check = {start: 0}
 
     visit_count = [[0 for _ in range(cols)] for _ in range(rows)]
@@ -208,38 +219,43 @@ def a_star(start, end, grid, heuristic_function):
     last_visit = [[None for _ in range(cols)] for _ in range(rows)]
     counter = 1
 
-    heapq.heappush(heap, (heuristic_function(start, end), 0, start))
+    f_cost = heuristic_function(start, end)
+    tie = next(counter_gen)
+    heapq.heappush(heap, (f_cost, tie, 0, start)) 
+
     first_visit[start[0]][start[1]] = counter
     visit_count[start[0]][start[1]] += 1
 
-    while heap: 
-        _, curr_cost, curr = heapq.heappop(heap)
+    while heap:
+        _, _, curr_cost, curr = heapq.heappop(heap)
         i, j = curr
 
-        if curr == end: 
+        if curr == end:
             return reconstruct_path(parent, start, end), visit_count, first_visit, last_visit
-        
+
         if curr in visited:
             continue
         visited.add(curr)
         last_visit[i][j] = counter
         counter += 1
 
-        for n1, n2 in get_adj(i,j, grid): 
+        for n1, n2 in get_adj(i, j, grid):
             neighbor = (n1, n2)
-            new_cost = curr_cost + cost_function(curr, neighbor, grid) 
+            new_cost = curr_cost + cost_function(curr, neighbor, grid)
 
             if neighbor not in cost_check or new_cost < cost_check[neighbor]:
                 cost_check[neighbor] = new_cost
                 parent[neighbor] = curr
-                a_star_cost = new_cost + heuristic_function(neighbor, end)
-                heapq.heappush(heap, (a_star_cost, new_cost, neighbor))
+                f = new_cost + heuristic_function(neighbor, end)
+                tie = next(counter_gen)
+                heapq.heappush(heap, (f, tie, new_cost, neighbor))
 
-            if first_visit[n1][n2] is None:
+                if first_visit[n1][n2] is None:
                     first_visit[n1][n2] = counter
                     visit_count[n1][n2] += 1
 
     return None, visit_count, first_visit, last_visit
+
 
 def main():
     mode = sys.argv[1]
