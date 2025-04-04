@@ -1,4 +1,5 @@
 from collections import deque
+import heapq
 
 STUDENT_ID = 'a1884969'
 DEGREE = 'UG'
@@ -6,17 +7,23 @@ DEGREE = 'UG'
 def parse_map_from_string(map_str): 
     return [line.strip().split() for line in map_str.strip().split('\n')]
 
-def get_adj(i, j, map_matrix):
+def parse_map_from_file(filename):
+    with open(filename, 'r') as file:
+        map_str = file.read()
+    return parse_map_from_string(map_str)
+
+
+def get_adj(i, j, grid):
     adj_nodes = []
-    rows = len(map_matrix)
-    cols = len(map_matrix[0])
+    rows = len(grid)
+    cols = len(grid[0])
     directions = [(-1,0), (1,0), (0,-1), (0,1)]
 
     for p1, p2 in directions: 
         n1 = i + p1 
         n2 = j + p2
         if 0 <= n1 < rows and 0 <= n2 < cols: 
-            if (map_matrix[n1][n2] != 'X'): 
+            if (grid[n1][n2] != 'X'): 
                 adj_nodes.append((n1, n2))
 
     return adj_nodes
@@ -30,9 +37,9 @@ def reconstruct_path(parent, start, goal):
     path.append(start)  # add the start at the end
     return path[::-1]  # reverse the path to go start → goal
 
-def BFS(start, end, map): 
-    rows = len(map)
-    cols = len(map[0])
+def BFS(start, end, grid): 
+    rows = len(grid)
+    cols = len(grid[0])
 
     visited = set()
     parent = dict()
@@ -56,11 +63,13 @@ def BFS(start, end, map):
         if curr == end: 
             return reconstruct_path(parent, start, end), visit_count, first_visit, last_visit
         
-        for n1, n2 in get_adj(c1, c2, map): 
+        for n1, n2 in get_adj(c1, c2, grid): 
                 if (n1,n2) not in visited: 
                     visited.add((n1,n2))
                     parent[(n1,n2)] = (c1,c2)
                     queue.append((n1, n2))
+
+                    visit_count[n1][n2] = 1
 
                 if first_visit[n1][n2] is None: 
                     first_visit[n1][n2] = counter
@@ -99,14 +108,8 @@ def print_matrix(matrix, obstacles):
         print(' '.join(row))
 
 def test_bfs_with_string_map():
-    map_str = '''
-    1 1 1 1 1
-    1 X 1 X 1
-    1 X 1 X 1
-    1 1 1 X 1
-    X X 1 1 1
-    '''
-    grid = parse_map_from_string(map_str)
+
+    grid = parse_map_from_file('map.txt')
     start = (0, 0)
     goal = (4, 4)
     path, visits, first_visit, last_visit = BFS(start, goal, grid)
@@ -127,3 +130,169 @@ def test_bfs_with_string_map():
     print_matrix(last_visit, grid)
 
 test_bfs_with_string_map()
+
+
+def cost_function(curr, neighbour, grid):
+    i, j = curr
+    ni, nj = neighbour
+
+    curr_state = int(grid[i][j])
+    n_state = int(grid[ni][nj])
+
+    return 1 + max(0, (n_state - curr_state))
+
+def UCS(start, end, grid):
+    rows = len(grid)
+    cols = len(grid[0])
+
+    visited = set()
+    parent = dict()
+
+    heap = []
+    cost_check = {}
+    cost_check[start] = 0 
+
+    heapq.heappush(heap, (0, start))
+
+    visit_count = [[0 for _ in range(cols)] for _ in range(rows)]
+    first_visit = [[None for _ in range(cols)] for _ in range(rows)]
+    last_visit = [[None for _ in range(cols)] for _ in range(rows)]
+    counter = 1
+
+    first_visit[start[0]][start[1]] = counter
+    visit_count[start[0]][start[1]] += 1
+
+    while heap: 
+        curr_cost, curr = heapq.heappop(heap)
+        i, j = curr 
+
+        if curr == end: 
+            return reconstruct_path(parent, start, end), visit_count, first_visit, last_visit
+        
+        if curr in visited: 
+            continue
+        visited.add(curr)
+
+        for n1, n2 in get_adj(i,j,grid):
+            neighbor = (n1, n2)
+            new_cost = curr_cost + cost_function(curr, neighbor, grid)
+
+            if neighbor not in cost_check or new_cost < cost_check[neighbor]: 
+                cost_check[neighbor] = new_cost
+                parent[neighbor] = curr
+                heapq.heappush(heap, (new_cost, neighbor))
+
+            if first_visit[n1][n2] is None:
+                first_visit[n1][n2] = counter
+                visit_count[n1][n2] += 1
+
+    return None, visit_count, first_visit, last_visit
+
+def test_ucs_with_string_map():
+
+    grid = parse_map_from_file('map.txt')
+    start = (0, 0)
+    goal = (4, 4)
+
+    path, visits, first_visit, last_visit = UCS(start, goal, grid)
+
+    if path is None:
+        print("path:\nnull")
+    else:
+        print("path:")
+        print(overlay_path(grid, path))
+
+    print("\n#visits:")
+    print_matrix(visits, grid)
+
+    print("\nfirst visit:")
+    print_matrix(first_visit, grid)
+
+    print("\nlast visit:")
+    print_matrix(last_visit, grid)
+
+test_ucs_with_string_map()
+
+def manhattan_dist(a,b): 
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+def euclidean_dist(a,b):
+    return((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+
+def a_star(start, end, grid, heuristic_function):
+    rows = len(grid)
+    cols = len(grid[0])
+
+    visited = set()
+    parent = dict()
+
+    heap = [] 
+    cost_check = {start: 0}
+
+    visit_count = [[0 for _ in range(cols)] for _ in range(rows)]
+    first_visit = [[None for _ in range(cols)] for _ in range(rows)]
+    last_visit = [[None for _ in range(cols)] for _ in range(rows)]
+    counter = 1
+
+    heapq.heappush(heap, (heuristic_function(start, end), 0, start))
+    first_visit[start[0]][start[1]] = counter
+    visit_count[start[0]][start[1]] += 1
+
+    while heap: 
+        _, curr_cost, curr = heapq.heappop(heap)
+        i, j = curr
+
+        if curr == end: 
+            return reconstruct_path(parent, start, end), visit_count, first_visit, last_visit
+        
+        if curr in visited:
+            continue
+        visited.add(curr)
+        last_visit[i][j] = counter
+        counter += 1
+
+        for n1, n2 in get_adj(i,j, grid): 
+            neighbor = (n1, n2)
+            new_cost = curr_cost + cost_function(curr, neighbor, grid) 
+
+            if neighbor not in cost_check or new_cost < cost_check[neighbor]:
+                cost_check[neighbor] = new_cost
+                parent[neighbor] = curr
+                a_star_cost = new_cost + heuristic_function(neighbor, end)
+                heapq.heappush(heap, (a_star_cost, new_cost, neighbor))
+
+            if first_visit[n1][n2] is None:
+                    first_visit[n1][n2] = counter
+                    visit_count[n1][n2] += 1
+
+    return None, visit_count, first_visit, last_visit
+
+def test_astar_with_string_map():
+
+    grid = parse_map_from_file('map.txt')
+    start = (0, 0)
+    goal = (4, 4)
+
+    # Choose which heuristic to test: manhattan or euclidean
+    path, visits, first_visit, last_visit = a_star(start, goal, grid, manhattan_dist)
+    # path, visits, first_visit, last_visit = A_star(start, goal, grid, euclidean)
+
+    if path is None:
+        print("path:\nnull")
+    else:
+        print("path:")
+        print(overlay_path(grid, path))
+
+    print("\n#visits:")
+    print_matrix(visits, grid)
+
+    print("\nfirst visit:")
+    print_matrix(first_visit, grid)
+
+    print("\nlast visit:")
+    print_matrix(last_visit, grid)
+
+test_astar_with_string_map()
+
+
+
