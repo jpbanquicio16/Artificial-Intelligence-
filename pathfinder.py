@@ -297,5 +297,57 @@ def test_astar_with_string_map():
 
 test_astar_with_string_map()
 
+def main():
+    grid = parse_map_from_file('map.txt')
+    start = (0, 0)
+    goal = (4, 4)
+
+    print("Select search algorithm:")
+    print("1. Breadth-First Search (BFS)")
+    print("2. Uniform Cost Search (UCS)")
+    print("3. A* Search (Manhattan Heuristic)")
+    print("4. A* Search (Euclidean Heuristic)")
+
+    choice = input("Enter the number of your choice: ").strip()
+
+    if choice == '1':
+        path, visits, first_visit, last_visit = BFS(start, goal, grid)
+        method = "BFS"
+    elif choice == '2':
+        path, visits, first_visit, last_visit = UCS(start, goal, grid)
+        method = "UCS"
+    elif choice == '3':
+        path, visits, first_visit, last_visit = a_star(start, goal, grid, manhattan_dist)
+        method = "A* (Manhattan)"
+    elif choice == '4':
+        path, visits, first_visit, last_visit = a_star(start, goal, grid, euclidean_dist)
+        method = "A* (Euclidean)"
+    else:
+        print("Invalid choice.")
+        return
+
+    print(f"\n{method} path:")
+    if path is None:
+        print("null")
+    else:
+        print(overlay_path(grid, path))
+
+    print("\n#visits:")
+    print_matrix(visits, grid)
+
+    print("\nfirst visit:")
+    print_matrix(first_visit, grid)
+
+    print("\nlast visit:")
+    print_matrix(last_visit, grid)
 
 
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+if __name__ == "__main__":
+    main()
