@@ -1,8 +1,9 @@
+STUDENT_ID = 'a1884969'
+DEGREE = 'UG'
+
 from collections import deque
 import heapq
 
-STUDENT_ID = 'a1884969'
-DEGREE = 'UG'
 
 def parse_map_from_string(map_str): 
     return [line.strip().split() for line in map_str.strip().split('\n')]
