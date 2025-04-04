@@ -3,10 +3,31 @@ DEGREE = 'UG'
 
 from collections import deque
 import heapq
+import sys
 
 
-def parse_map_from_string(map_str): 
-    return [line.strip().split() for line in map_str.strip().split('\n')]
+def parse_map_from_string(map_str):
+    lines = [line.strip() for line in map_str.strip().split('\n') if line.strip()]
+
+    rows, cols = map(int, lines[0].split())
+
+    start_i, start_j = map(int, lines[1].split())
+    end_i, end_j = map(int, lines[2].split())
+    start = (start_i - 1, start_j - 1)  
+    end = (end_i - 1, end_j - 1)
+
+    grid = []
+    for line in lines[3:]:
+        row = []
+        for val in line.split():
+            if val == 'X':
+                row.append('X')  
+            else:
+                row.append(int(val))  
+        grid.append(row)
+
+    return rows, cols, start, end, grid
+
 
 def parse_map_from_file(filename):
     with open(filename, 'r') as file:
@@ -34,9 +55,9 @@ def reconstruct_path(parent, start, goal):
     current = goal
     while current != start:
         path.append(current)
-        current = parent[current]  # move one step back
-    path.append(start)  # add the start at the end
-    return path[::-1]  # reverse the path to go start → goal
+        current = parent[current] 
+    path.append(start)  
+    return path[::-1]  
 
 def BFS(start, end, grid): 
     rows = len(grid)
@@ -79,7 +100,7 @@ def BFS(start, end, grid):
     return None, visit_count, first_visit, last_visit
 
 def overlay_path(map_matrix, path):
-    path_set = set(path)  # for faster lookup
+    path_set = set(path)
     output = []
 
     for i, row in enumerate(map_matrix):
@@ -88,10 +109,11 @@ def overlay_path(map_matrix, path):
             if (i, j) in path_set:
                 line.append('*')
             else:
-                line.append(cell)
-        output.append(' '.join(line))
-    
+                line.append(str(cell))  
+        output.append(' '.join(line))  
+
     return '\n'.join(output)
+
 
 
 
@@ -107,30 +129,6 @@ def print_matrix(matrix, obstacles):
             else:
                 row.append(str(matrix[i][j]))
         print(' '.join(row))
-
-def test_bfs_with_string_map():
-
-    grid = parse_map_from_file('map.txt')
-    start = (0, 0)
-    goal = (4, 4)
-    path, visits, first_visit, last_visit = BFS(start, goal, grid)
-
-    if path is None:
-        print("path:\nnull")
-    else:
-        print("path:")
-        print(overlay_path(grid, path))
-
-    print("\n#visits:")
-    print_matrix(visits, grid)
-
-    print("\nfirst visit:")
-    print_matrix(first_visit, grid)
-
-    print("\nlast visit:")
-    print_matrix(last_visit, grid)
-
-test_bfs_with_string_map()
 
 
 def cost_function(curr, neighbour, grid):
@@ -189,31 +187,6 @@ def UCS(start, end, grid):
 
     return None, visit_count, first_visit, last_visit
 
-def test_ucs_with_string_map():
-
-    grid = parse_map_from_file('map.txt')
-    start = (0, 0)
-    goal = (4, 4)
-
-    path, visits, first_visit, last_visit = UCS(start, goal, grid)
-
-    if path is None:
-        print("path:\nnull")
-    else:
-        print("path:")
-        print(overlay_path(grid, path))
-
-    print("\n#visits:")
-    print_matrix(visits, grid)
-
-    print("\nfirst visit:")
-    print_matrix(first_visit, grid)
-
-    print("\nlast visit:")
-    print_matrix(last_visit, grid)
-
-test_ucs_with_string_map()
-
 def manhattan_dist(a,b): 
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
@@ -268,76 +241,47 @@ def a_star(start, end, grid, heuristic_function):
 
     return None, visit_count, first_visit, last_visit
 
-def test_astar_with_string_map():
-
-    grid = parse_map_from_file('map.txt')
-    start = (0, 0)
-    goal = (4, 4)
-
-    # Choose which heuristic to test: manhattan or euclidean
-    path, visits, first_visit, last_visit = a_star(start, goal, grid, manhattan_dist)
-    # path, visits, first_visit, last_visit = A_star(start, goal, grid, euclidean)
-
-    if path is None:
-        print("path:\nnull")
-    else:
-        print("path:")
-        print(overlay_path(grid, path))
-
-    print("\n#visits:")
-    print_matrix(visits, grid)
-
-    print("\nfirst visit:")
-    print_matrix(first_visit, grid)
-
-    print("\nlast visit:")
-    print_matrix(last_visit, grid)
-
-test_astar_with_string_map()
-
 def main():
-    grid = parse_map_from_file('map.txt')
-    start = (0, 0)
-    goal = (4, 4)
+    mode = sys.argv[1]
+    map_path = sys.argv[2]
+    algorithm = sys.argv[3].lower()  # normalize to lowercase
+    heuristic = sys.argv[4].lower() if algorithm == 'astar' else None
 
-    print("Select search algorithm:")
-    print("1. Breadth-First Search (BFS)")
-    print("2. Uniform Cost Search (UCS)")
-    print("3. A* Search (Manhattan Heuristic)")
-    print("4. A* Search (Euclidean Heuristic)")
+    rows, cols, start, goal, grid = parse_map_from_file(map_path)
 
-    choice = input("Enter the number of your choice: ").strip()
-
-    if choice == '1':
+    if algorithm == 'bfs':
         path, visits, first_visit, last_visit = BFS(start, goal, grid)
-        method = "BFS"
-    elif choice == '2':
+    elif algorithm == 'ucs':
         path, visits, first_visit, last_visit = UCS(start, goal, grid)
-        method = "UCS"
-    elif choice == '3':
-        path, visits, first_visit, last_visit = a_star(start, goal, grid, manhattan_dist)
-        method = "A* (Manhattan)"
-    elif choice == '4':
-        path, visits, first_visit, last_visit = a_star(start, goal, grid, euclidean_dist)
-        method = "A* (Euclidean)"
+    elif algorithm == 'astar':
+        if heuristic == 'manhattan':
+            heuristic_function = manhattan_dist
+        elif heuristic == 'euclidean':
+            heuristic_function = euclidean_dist
+        else:
+            print("Invalid heuristic.")
+            return
+
+        path, visits, first_visit, last_visit = a_star(start, goal, grid, heuristic_function)
     else:
-        print("Invalid choice.")
+        print("Invalid algorithm.")
         return
 
-    print(f"\n{method} path:")
-    if path is None:
-        print("null")
-    else:
-        print(overlay_path(grid, path))
+    if mode == 'release':
+        print("null" if path is None else overlay_path(grid, path))
+    elif mode == 'debug':
+        print("path:")
+        print("null" if path is None else overlay_path(grid, path))
 
-    print("\n#visits:")
-    print_matrix(visits, grid)
+        print("\n#visits:")
+        print_matrix(visits, grid)
 
-    print("\nfirst visit:")
-    print_matrix(first_visit, grid)
+        print("\nfirst visit:")
+        print_matrix(first_visit, grid)
 
-    print("\nlast visit:")
-    print_matrix(last_visit, grid)
+        print("\nlast visit:")
+        print_matrix(last_visit, grid)
+
 
 if __name__ == "__main__":
     main()
