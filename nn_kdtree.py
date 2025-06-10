@@ -2,8 +2,7 @@ import sys
 import numpy as np
 import pandas as pd
 
-
-STUDENT_ID = 'a1884969' # Nice :)  
+STUDENT_ID = 'a1884969'  # Nice :)  (odd ⇒ ties go left)
 DEGREE = 'UG'
 
 class Node:
@@ -16,37 +15,41 @@ class Node:
         self.right = None
 
 def build_tree(X, y, depth):
-        if X.shape[0] == 0:
-            return None
-        k = X.shape[1]
-        axis = depth % k
+    if X.shape[0] == 0:
+        return None
+    k = X.shape[1]
+    axis = depth % k
 
-        # when there's exactly one point, make a leaf
-        if X.shape[0] == 1:
-            return Node(X[0], y[0], axis, X[0][axis])
+    # when there's exactly one point, make a leaf
+    if X.shape[0] == 1:
+        return Node(X[0], y[0], axis, X[0][axis])
 
-        # sort on the current axis and pick the median
-        sorted_idx = np.argsort(X[:, axis])
-        X_sorted = X[sorted_idx]
-        y_sorted = y[sorted_idx]
-        mid = X_sorted.shape[0] // 2
+    # sort on the current axis and pick the median
+    sorted_idx = np.argsort(X[:, axis])
+    X_sorted = X[sorted_idx]
+    y_sorted = y[sorted_idx]
+    n = X_sorted.shape[0]
+    mid = n // 2
 
-        # this is the median point/node
-        median_point = X_sorted[mid]
-        median_label = y_sorted[mid]
-        node = Node(median_point, median_label, axis, median_point[axis])
+    # this is the median point/node
+    median_point = X_sorted[mid]
+    median_label = y_sorted[mid]
+    node = Node(median_point.copy(), median_label, axis, median_point[axis])
 
-        # **IMPORTANT** – split the sorted arrays *around* the median,
-        # excluding index mid itself
-        left_X  = X_sorted[:mid]
-        left_y  = y_sorted[:mid]
-        right_X = X_sorted[mid+1:]
-        right_y = y_sorted[mid+1:]
+    # **IMPORTANT** – split the sorted arrays *around* the median,
+    # excluding index mid itself, and send ties to the left subtree
+    # (odd student ID variant: equal-to-median ⇒ left)
+    mask_left = (X_sorted[:, axis] <= median_point[axis])
+    mask_left[mid] = False  # exclude the median itself
 
-        node.left  = build_tree(left_X,  left_y,  depth + 1)
-        node.right = build_tree(right_X, right_y, depth + 1)
-        return node
+    all_idx = np.arange(n)
+    left_idx = all_idx[mask_left]
+    right_idx = all_idx[(~mask_left) & (all_idx != mid)]
 
+    # build subtrees
+    node.left = build_tree(X_sorted[left_idx], y_sorted[left_idx], depth + 1)
+    node.right = build_tree(X_sorted[right_idx], y_sorted[right_idx], depth + 1)
+    return node
 
 
 def search_nn(node, query, best_dist, best_label):
@@ -65,6 +68,7 @@ def search_nn(node, query, best_dist, best_label):
     else:
         near, away = node.right, node.left
 
+    # Search nearer subtree
     best_dist, best_label = search_nn(near, query, best_dist, best_label)
     # Check if we need to explore the away branch
     if abs(query[axis] - node.split_val) < best_dist:
@@ -83,13 +87,13 @@ def main():
 
     # Read data (auto-detect delimiter)
     df_train = pd.read_csv(train_path,
-                       delim_whitespace=True,
-                       header=None,
-                       skiprows=1)
-    df_test  = pd.read_csv(test_path,
-                       delim_whitespace=True,
-                       header=None,
-                       skiprows=1)
+                           delim_whitespace=True,
+                           header=None,
+                           skiprows=1)
+    df_test = pd.read_csv(test_path,
+                          delim_whitespace=True,
+                          header=None,
+                          skiprows=1)
 
     X_train = df_train.iloc[:, :-1].values
     y_train = df_train.iloc[:, -1].values
@@ -99,13 +103,15 @@ def main():
     axis = init_pos % k
 
     # Looking at nodes left due to odd id (Keshi song god im turning performative) number
+    # Compute root split counts (ties → left)
     sorted_idx = np.argsort(X_train[:, axis])
     X_sorted = X_train[sorted_idx]
-    y_sorted = y_train[sorted_idx]
     mid = X_sorted.shape[0] // 2
     median_val = X_sorted[mid][axis]
 
-    left_count = np.sum(X_train[:, axis] <= median_val)
+    # left_count: points <= median minus the median itself
+    left_count = np.sum(X_train[:, axis] <= median_val) - 1
+    # right_count: points strictly > median
     right_count = np.sum(X_train[:, axis] > median_val)
 
     # Print split info
@@ -119,7 +125,6 @@ def main():
     for point in X_test:
         _, label = search_nn(root, point, float('inf'), None)
         print(int(label))
-
 
 if __name__ == '__main__':
     main()
